@@ -7,10 +7,12 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { TrackListItem } from '@/components/TrackListItem';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { usePlayer } from '@/player/PlayerContext';
 
 export default function SetsScreen() {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const { playLocalQueue } = usePlayer();
 
   const { data: tracks, isLoading, error } = useQuery({
@@ -47,7 +49,7 @@ export default function SetsScreen() {
           </ThemedView>
         ) : null
       }
-      ListFooterComponent={isLoading ? <ActivityIndicator style={styles.loader} /> : null}
+      ListFooterComponent={isLoading ? <ActivityIndicator color={theme.accent} style={styles.loader} /> : null}
       renderItem={({ item, index }) => (
         <TrackListItem
           title={item.title}

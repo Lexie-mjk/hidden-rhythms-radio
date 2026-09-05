@@ -41,6 +41,7 @@ export default function RadioScreen() {
         { paddingTop: insets.top + Spacing.five, paddingBottom: insets.bottom + BottomTabInset + Spacing.six },
       ]}>
       <ThemedView style={styles.hero}>
+        <Image source={require('@/assets/images/hidden-logo.png')} style={styles.brandLogo} />
         <ThemedText type="title" style={styles.title}>
           Radio du collectif
         </ThemedText>
@@ -51,7 +52,9 @@ export default function RadioScreen() {
         {isRadioActive && nowPlaying?.artworkUrl ? (
           <Image source={{ uri: nowPlaying.artworkUrl }} style={styles.artwork} />
         ) : (
-          <ThemedView type="backgroundElement" style={styles.artwork} />
+          <ThemedView type="backgroundElement" style={[styles.artwork, styles.artworkPlaceholder]}>
+            <Image source={require('@/assets/images/hidden-logo.png')} style={styles.artworkLogo} />
+          </ThemedView>
         )}
 
         {isRadioActive && nowPlaying && (
@@ -66,9 +69,9 @@ export default function RadioScreen() {
         )}
 
         <Pressable onPress={handleMainButtonPress} disabled={isLoading || (tracks?.length ?? 0) === 0}>
-          <ThemedView type="backgroundElement" style={styles.playButton}>
+          <ThemedView type="accent" style={styles.playButton}>
             <SymbolView
-              tintColor={theme.text}
+              tintColor={theme.onAccent}
               name={{
                 ios: isRadioActive && isPlaying ? 'pause.fill' : 'play.fill',
                 android: isRadioActive && isPlaying ? 'pause' : 'play_arrow',
@@ -79,7 +82,7 @@ export default function RadioScreen() {
           </ThemedView>
         </Pressable>
 
-        {isLoading && <ActivityIndicator />}
+        {isLoading && <ActivityIndicator color={theme.accent} />}
         {error && (
           <ThemedText type="small" themeColor="textSecondary" style={styles.centerText}>
             Impossible de charger le catalogue. Vérifiez la configuration Supabase.
@@ -107,6 +110,11 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
     paddingHorizontal: Spacing.four,
   },
+  brandLogo: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+  },
   title: {
     textAlign: 'center',
   },
@@ -118,6 +126,16 @@ const styles = StyleSheet.create({
     height: 220,
     borderRadius: Spacing.three,
     marginTop: Spacing.four,
+  },
+  artworkPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  artworkLogo: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    opacity: 0.9,
   },
   nowPlayingTexts: {
     alignItems: 'center',

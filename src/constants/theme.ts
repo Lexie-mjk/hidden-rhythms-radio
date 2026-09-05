@@ -7,20 +7,25 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
+// Palette dérivée du logo du collectif (couronne végétale vert sauge sur fond ivoire).
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: '#2E3A1E',
+    background: '#F9F0C9',
+    backgroundElement: '#F0E6B4',
+    backgroundSelected: '#E4D89C',
+    textSecondary: '#6B7256',
+    accent: '#5C7A46',
+    onAccent: '#F9F0C9',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    text: '#F3ECC9',
+    background: '#161C10',
+    backgroundElement: '#212B17',
+    backgroundSelected: '#2D3A1F',
+    textSecondary: '#9CAE86',
+    accent: '#8CAE72',
+    onAccent: '#161C10',
   },
 } as const;
 

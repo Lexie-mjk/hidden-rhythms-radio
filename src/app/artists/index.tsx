@@ -8,9 +8,11 @@ import { ArtistCard } from '@/components/ArtistCard';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 export default function ArtistsScreen() {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const router = useRouter();
 
   const { data: artists, isLoading, error } = useQuery({
@@ -42,7 +44,7 @@ export default function ArtistsScreen() {
           </ThemedView>
         ) : null
       }
-      ListFooterComponent={isLoading ? <ActivityIndicator style={styles.loader} /> : null}
+      ListFooterComponent={isLoading ? <ActivityIndicator color={theme.accent} style={styles.loader} /> : null}
       renderItem={({ item }) => (
         <ArtistCard
           name={item.display_name}

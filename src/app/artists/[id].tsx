@@ -9,11 +9,13 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { TrackListItem } from '@/components/TrackListItem';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { usePlayer } from '@/player/PlayerContext';
 
 export default function ArtistDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const { playSoundCloudTrack } = usePlayer();
 
   const artistQuery = useQuery({
@@ -69,7 +71,7 @@ export default function ArtistDetailScreen() {
           </ThemedView>
         ) : null
       }
-      ListFooterComponent={isLoading ? <ActivityIndicator style={styles.loader} /> : null}
+      ListFooterComponent={isLoading ? <ActivityIndicator color={theme.accent} style={styles.loader} /> : null}
       renderItem={({ item }) => (
         <TrackListItem
           title={item.title}
