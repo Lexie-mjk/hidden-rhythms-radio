@@ -1,98 +1,134 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQuery } from '@tanstack/react-query';
+import { Image } from 'expo-image';
+import { SymbolView } from 'expo-symbols';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
+import { fetchTracks } from '@/api/supabase';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+import { usePlayer } from '@/player/PlayerContext';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
+export default function RadioScreen() {
+  const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const { sourceType, nowPlaying, isPlaying, playLocalQueue, togglePlayPause } = usePlayer();
+
+  const { data: tracks, isLoading, error } = useQuery({
+    queryKey: ['tracks'],
+    queryFn: fetchTracks,
+  });
+
+  const isRadioActive = sourceType === 'local';
+
+  function handleMainButtonPress() {
+    if (isRadioActive) {
+      togglePlayPause();
+      return;
+    }
+    if (tracks && tracks.length > 0) {
+      // Lecture en boucle, ordre du catalogue (pas de synchronisation entre auditeurs).
+      playLocalQueue(tracks, 0);
+    }
   }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
 
-export default function HomeScreen() {
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
+    <ScrollView
+      contentContainerStyle={[
+        styles.container,
+        { paddingTop: insets.top + Spacing.five, paddingBottom: insets.bottom + BottomTabInset + Spacing.six },
+      ]}>
+      <ThemedView style={styles.hero}>
+        <ThemedText type="title" style={styles.title}>
+          Radio du collectif
+        </ThemedText>
+        <ThemedText themeColor="textSecondary" style={styles.centerText}>
+          Nos morceaux et sets, en continu.
         </ThemedText>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+        {isRadioActive && nowPlaying?.artworkUrl ? (
+          <Image source={{ uri: nowPlaying.artworkUrl }} style={styles.artwork} />
+        ) : (
+          <ThemedView type="backgroundElement" style={styles.artwork} />
+        )}
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+        {isRadioActive && nowPlaying && (
+          <ThemedView style={styles.nowPlayingTexts}>
+            <ThemedText type="smallBold" numberOfLines={1}>
+              {nowPlaying.title}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+              {nowPlaying.artist}
+            </ThemedText>
+          </ThemedView>
+        )}
+
+        <Pressable onPress={handleMainButtonPress} disabled={isLoading || (tracks?.length ?? 0) === 0}>
+          <ThemedView type="backgroundElement" style={styles.playButton}>
+            <SymbolView
+              tintColor={theme.text}
+              name={{
+                ios: isRadioActive && isPlaying ? 'pause.fill' : 'play.fill',
+                android: isRadioActive && isPlaying ? 'pause' : 'play_arrow',
+                web: isRadioActive && isPlaying ? 'pause' : 'play_arrow',
+              }}
+              size={32}
+            />
+          </ThemedView>
+        </Pressable>
+
+        {isLoading && <ActivityIndicator />}
+        {error && (
+          <ThemedText type="small" themeColor="textSecondary" style={styles.centerText}>
+            Impossible de charger le catalogue. Vérifiez la configuration Supabase.
+          </ThemedText>
+        )}
+        {!isLoading && !error && (tracks?.length ?? 0) === 0 && (
+          <ThemedText type="small" themeColor="textSecondary" style={styles.centerText}>
+            Aucun morceau pour le moment — ajoutez-en depuis Supabase Studio.
+          </ThemedText>
+        )}
+      </ThemedView>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+    flexGrow: 1,
+    alignItems: 'center',
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
+  hero: {
+    width: '100%',
+    maxWidth: MaxContentWidth,
     alignItems: 'center',
     gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
     paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
   },
   title: {
     textAlign: 'center',
   },
-  code: {
-    textTransform: 'uppercase',
+  centerText: {
+    textAlign: 'center',
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  artwork: {
+    width: 220,
+    height: 220,
+    borderRadius: Spacing.three,
+    marginTop: Spacing.four,
+  },
+  nowPlayingTexts: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  playButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: Spacing.two,
   },
 });
