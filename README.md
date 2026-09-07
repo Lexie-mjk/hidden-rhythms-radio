@@ -1,56 +1,97 @@
-# Welcome to your Expo app 👋
+# Hidden Rhythms Radio
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Application mobile (React Native / Expo) du collectif **Hidden Rhythms** : une web radio qui met en avant les sets du collectif et les artistes/playlists de son compte SoundCloud.
 
-## Get started
+## Fonctionnement
 
-1. Install dependencies
+L'app a 3 onglets et un panel d'administration caché.
 
-   ```bash
-   npm install
-   ```
+### Radio
+Lecture **aléatoire et en continu** du catalogue de sets hébergés directement sur Supabase (uploadés depuis le panel admin). Pas de synchronisation entre auditeurs — chacun a sa propre lecture.
 
-2. Start the app
+### Playlist
+Deux sources, affichées côte à côte :
+- **Playlists SoundCloud** — toutes les playlists publiques du compte SoundCloud de Hidden Rhythms, récupérées en direct. Rien à gérer : tout ce qui est publié sur SoundCloud apparaît automatiquement.
+- **Nos playlists** — des playlists "maison", composées de sets déjà hébergés sur Supabase, créées depuis le panel admin.
 
-   ```bash
-   npx expo start
-   ```
+### Artistes
+Les artistes du collectif, chacun avec sa bio et ses morceaux SoundCloud.
 
-In the output, you'll find options to open the app in a
+### Panel admin (`/admin`)
+Route volontairement absente de la barre d'onglets, accessible en tapant l'URL. Protégée par une vraie connexion (Supabase Auth — pas de mot de passe partagé). Permet d'ajouter/supprimer des sets (upload direct de fichiers audio + pochette), des artistes SoundCloud, et des playlists maison.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Comment c'est construit
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+Pas de serveur applicatif classique — le backend est **Supabase** (Postgres + Storage + Auth), avec une seule pièce serveur : une **Edge Function** qui garde secret le `client_secret` SoundCloud (l'API SoundCloud exige désormais un token OAuth2, un secret qui ne doit jamais être embarqué dans l'app) et sert de proxy pour les recherches de métadonnées (profils, morceaux, playlists). La lecture audio SoundCloud, elle, passe toujours par le Widget public officiel — aucun besoin d'auth pour ça.
 
-## Get a fresh project
+Deux moteurs de lecture coexistent derrière une seule interface (`PlayerContext`) : `expo-audio` pour les fichiers hébergés sur Supabase, et le Widget SoundCloud embarqué (WebView sur mobile, `<iframe>` sur web) pour SoundCloud — un seul son actif à la fois, peu importe la source.
 
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+src/
+  api/          clients Supabase et SoundCloud
+  app/          écrans (expo-router) : (tabs)/ pour les 3 onglets, admin.tsx à part
+  components/   UI réutilisable
+  player/       PlayerContext + lecteur SoundCloud (WebView / iframe)
+supabase/
+  schema.sql          tables tracks / soundcloud_artists + lecture publique
+  admin-access.sql    droits d'écriture pour le compte admin
+  playlists.sql       tables playlists / playlist_tracks
+  functions/soundcloud-proxy   Edge Function (proxy API SoundCloud)
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Démarrer en local
 
-### Other setup steps
+```bash
+npm install
+cp .env.example .env   # puis remplir les valeurs (voir .env.example)
+npx expo start --web   # ou --ios / --android avec un build de dev (expo-audio est natif)
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+Côté Supabase (une fois) : exécuter `schema.sql`, `admin-access.sql` et `playlists.sql` dans l'éditeur SQL, créer un compte admin (Authentication > Users), et déployer la Edge Function :
 
-## Learn more
+```bash
+npx supabase login
+npx supabase link
+npx supabase secrets set SOUNDCLOUD_CLIENT_ID=... SOUNDCLOUD_CLIENT_SECRET=...
+npx supabase functions deploy soundcloud-proxy
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+## Charte graphique
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Palette dérivée directement du logo du collectif (couronne végétale vert sauge sur fond ivoire).
 
-## Join the community
+| Rôle | Clair | Sombre |
+|---|---|---|
+| Fond | `#F9F0C9` | `#161C10` |
+| Fond élément (carte) | `#F0E6B4` | `#212B17` |
+| Fond sélectionné | `#E4D89C` | `#2D3A1F` |
+| Texte | `#2E3A1E` | `#F3ECC9` |
+| Texte secondaire | `#6B7256` | `#9CAE86` |
+| Accent (boutons, actif) | `#5C7A46` | `#8CAE72` |
+| Texte sur accent | `#F9F0C9` | `#161C10` |
 
-Join our community of developers creating universal apps.
+Le thème sombre est l'inverse du clair (fond forêt profond, texte crème) — les deux réutilisent la même famille vert sauge / ivoire du logo, jamais de couleur hors palette (pas de bleu système, pas de rouge — même les indicateurs de chargement sont teintés en vert accent).
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- **Typographie** : police système (`system-ui` iOS, par défaut ailleurs), pas de police custom.
+- **Espacements** : échelle en puissances de 2 — 2 / 4 / 8 / 16 / 24 / 32 / 64.
+- **Formes** : coins arrondis généreux (boutons pilule, cartes à `border-radius` large), cohérent avec la forme circulaire de la couronne du logo.
+- **Logo** : [assets/images/hidden-logo.png](assets/images/hidden-logo.png), utilisé comme icône d'app, splash screen, favicon et pochette par défaut. C'est un export basse résolution (96×96) — à refaire en haute résolution (idéalement 1024×1024, fond transparent pour l'icône adaptative Android) avant une soumission sur les stores.
+
+## Roadmap
+
+### À faire avant que tout soit pleinement fonctionnel
+- [ ] Exécuter `admin-access.sql` et `playlists.sql` dans Supabase (si pas déjà fait).
+- [ ] Récupérer le `client_secret` SoundCloud et déployer la Edge Function `soundcloud-proxy`.
+- [ ] Vérifier `EXPO_PUBLIC_SOUNDCLOUD_ACCOUNT_URL` dans `.env` (URL exacte du profil SoundCloud de Hidden Rhythms).
+- [ ] Renommer `EXPO_PUBLIC_SUPABASE_SECRET_KEY` en `SUPABASE_SECRET_KEY` (sans préfixe `EXPO_PUBLIC_`) — cette clé ne doit jamais être embarquée côté client.
+- [ ] Build de dev (`eas build --profile development`) pour tester sur un vrai téléphone : lecture en arrière-plan, contrôle écran verrouillé, upload de fichiers depuis le panel admin.
+
+### Court terme
+- [ ] Logo en haute résolution (icône d'app, splash, icône adaptative Android correctement détourée).
+- [ ] Skip morceau précédent/suivant visible dans le mini-lecteur (déjà géré côté code, pas encore de bouton).
+
+### Idées pour plus tard
+- [ ] Recherche/filtre dans le catalogue de sets.
+- [ ] Écran "à propos" du collectif.
+- [ ] Notifications pour les nouveaux sets/playlists.
+- [ ] Mode hors-ligne (mise en cache des sets déjà écoutés).
