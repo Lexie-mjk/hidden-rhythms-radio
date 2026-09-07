@@ -2,12 +2,9 @@ import { forwardRef, useImperativeHandle, useRef } from 'react';
 import { StyleSheet } from 'react-native';
 import WebView, { type WebViewMessageEvent } from 'react-native-webview';
 
-export type SoundCloudWidgetEvent = { type: 'READY' | 'PLAY' | 'PAUSE' | 'FINISH' | 'ERROR' };
+import type { SoundCloudWidgetEvent, SoundCloudWidgetHandle } from '@/player/soundCloudWidgetTypes';
 
-export type SoundCloudWidgetHandle = {
-  play: () => void;
-  pause: () => void;
-};
+export type { SoundCloudWidgetEvent, SoundCloudWidgetHandle };
 
 type Props = {
   trackUrl: string;
