@@ -68,3 +68,7 @@ export const Spacing = {
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
+
+// Espace à réserver en bas des écrans à liste pour que le mini-lecteur (bandeau flottant,
+// voir MiniPlayer.tsx) ne recouvre jamais le dernier élément quand un morceau est en cours.
+export const MiniPlayerReservedSpace = 76;

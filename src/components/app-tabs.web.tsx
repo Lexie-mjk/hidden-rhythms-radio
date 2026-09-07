@@ -8,17 +8,22 @@ import {
   TabTriggerSlotProps,
   TabListProps,
 } from 'expo-router/ui';
-import { Pressable, View, StyleSheet } from 'react-native';
+import { Pressable, View, StyleSheet, useWindowDimensions } from 'react-native';
 
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 
+// En dessous de cette largeur, la barre d'onglets passe en mode compact (voir CustomTabList).
+const COMPACT_BREAKPOINT = 480;
+
 export default function AppTabs() {
   return (
-    <Tabs>
-      <TabSlot style={{ height: '100%' }} />
+    <Tabs style={styles.tabs}>
+      {/* TabList avant TabSlot, tous deux en flux normal (pas de position absolue) : la barre
+          occupe sa propre hauteur et le contenu (flex:1) se cale juste en dessous, sans jamais
+          se superposer — cf. la doc expo-router/ui sur les tab bars personnalisées. */}
       <TabList asChild>
         <CustomTabList>
           {/* "/" est bien le chemin réel de l'écran (tabs)/index — expo-router n'inclut
@@ -34,6 +39,7 @@ export default function AppTabs() {
           </TabTrigger>
         </CustomTabList>
       </TabList>
+      <TabSlot style={styles.slot} />
     </Tabs>
   );
 }
@@ -51,23 +57,36 @@ export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps
 }
 
 export function CustomTabList(props: TabListProps) {
+  const { width } = useWindowDimensions();
+  const isCompact = width < COMPACT_BREAKPOINT;
+
   return (
     <View {...props} style={styles.tabListContainer}>
-      <ThemedView type="backgroundElement" style={styles.innerContainer}>
+      <ThemedView
+        type="backgroundElement"
+        style={[styles.innerContainer, isCompact && styles.innerContainerCompact]}>
         <Image source={require('@/assets/images/hidden-logo.png')} style={styles.brandLogo} />
-        <ThemedText type="smallBold" style={styles.brandText}>
-          Radio Collectif
-        </ThemedText>
+        {!isCompact && (
+          <ThemedText type="smallBold" style={styles.brandText}>
+            Radio Collectif
+          </ThemedText>
+        )}
 
-        {props.children}
+        <View style={[styles.triggers, isCompact && styles.triggersCompact]}>{props.children}</View>
       </ThemedView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  tabs: {
+    flex: 1,
+    flexDirection: 'column',
+  },
+  slot: {
+    flex: 1,
+  },
   tabListContainer: {
-    position: 'absolute',
     width: '100%',
     padding: Spacing.three,
     justifyContent: 'center',
@@ -84,6 +103,10 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     maxWidth: MaxContentWidth,
   },
+  innerContainerCompact: {
+    paddingHorizontal: Spacing.three,
+    gap: Spacing.one,
+  },
   brandLogo: {
     width: 28,
     height: 28,
@@ -91,6 +114,18 @@ const styles = StyleSheet.create({
   },
   brandText: {
     marginRight: 'auto',
+  },
+  triggers: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    marginLeft: 'auto',
+  },
+  triggersCompact: {
+    gap: Spacing.half,
+    marginLeft: 0,
+    flex: 1,
+    justifyContent: 'space-between',
   },
   pressed: {
     opacity: 0.7,

@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchTracks } from '@/api/supabase';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, MiniPlayerReservedSpace, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { usePlayer } from '@/player/PlayerContext';
 import { shuffle } from '@/utils/shuffle';
@@ -41,11 +41,14 @@ export default function RadioScreen() {
     <ScrollView
       contentContainerStyle={[
         styles.container,
-        { paddingTop: insets.top + Spacing.five, paddingBottom: insets.bottom + BottomTabInset + Spacing.six },
+        {
+          paddingTop: insets.top + Spacing.five,
+          paddingBottom: insets.bottom + BottomTabInset + MiniPlayerReservedSpace + Spacing.three,
+        },
       ]}>
       <ThemedView style={styles.hero}>
         <Image source={require('@/assets/images/hidden-logo.png')} style={styles.brandLogo} />
-        <ThemedText type="title" style={styles.title}>
+        <ThemedText type="subtitle" style={styles.title}>
           Radio du collectif
         </ThemedText>
         <ThemedText themeColor="textSecondary" style={styles.centerText}>

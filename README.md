@@ -80,15 +80,16 @@ Le thème sombre est l'inverse du clair (fond forêt profond, texte crème) — 
 ## Roadmap
 
 ### À faire avant que tout soit pleinement fonctionnel
-- [ ] Exécuter `admin-access.sql` et `playlists.sql` dans Supabase (si pas déjà fait).
-- [ ] Récupérer le `client_secret` SoundCloud et déployer la Edge Function `soundcloud-proxy`.
-- [ ] Vérifier `EXPO_PUBLIC_SOUNDCLOUD_ACCOUNT_URL` dans `.env` (URL exacte du profil SoundCloud de Hidden Rhythms).
+- [x] Exécuter `admin-access.sql` et `playlists.sql` dans Supabase.
+- [x] Récupérer le `client_secret` SoundCloud et déployer la Edge Function `soundcloud-proxy`.
+- [x] Vérifier `EXPO_PUBLIC_SOUNDCLOUD_ACCOUNT_URL` dans `.env` (confirmé par les vraies playlists/artistes Hidden Rhythms qui s'affichent dans l'app).
 - [ ] Renommer `EXPO_PUBLIC_SUPABASE_SECRET_KEY` en `SUPABASE_SECRET_KEY` (sans préfixe `EXPO_PUBLIC_`) — cette clé ne doit jamais être embarquée côté client.
 - [ ] Build de dev (`eas build --profile development`) pour tester sur un vrai téléphone : lecture en arrière-plan, contrôle écran verrouillé, upload de fichiers depuis le panel admin.
 
 ### Court terme
 - [ ] Logo en haute résolution (icône d'app, splash, icône adaptative Android correctement détourée).
 - [ ] Skip morceau précédent/suivant visible dans le mini-lecteur (déjà géré côté code, pas encore de bouton).
+- [ ] Surveiller la fiabilité de la Edge Function `soundcloud-proxy` : des 400 intermittents ont été observés sur les appels playlists/artistes (probablement lié au cache du token OAuth SoundCloud, à creuser si ça persiste).
 
 ### Idées pour plus tard
 - [ ] Recherche/filtre dans le catalogue de sets.

@@ -7,7 +7,7 @@ import { fetchSoundCloudArtists } from '@/api/supabase';
 import { ArtistCard } from '@/components/ArtistCard';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, MiniPlayerReservedSpace, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function ArtistsScreen() {
@@ -25,7 +25,10 @@ export default function ArtistsScreen() {
       style={styles.list}
       contentContainerStyle={[
         styles.content,
-        { paddingTop: insets.top + Spacing.three, paddingBottom: insets.bottom + BottomTabInset + Spacing.three },
+        {
+          paddingTop: insets.top + Spacing.three,
+          paddingBottom: insets.bottom + BottomTabInset + MiniPlayerReservedSpace + Spacing.three,
+        },
       ]}
       data={artists ?? []}
       keyExtractor={(item) => item.id}
