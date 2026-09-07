@@ -20,47 +20,56 @@ create table if not exists public.playlist_tracks (
 alter table public.playlists enable row level security;
 alter table public.playlist_tracks enable row level security;
 
+drop policy if exists "playlists are publicly readable" on public.playlists;
 create policy "playlists are publicly readable"
   on public.playlists for select
   to anon
   using (true);
 
+drop policy if exists "playlist_tracks are publicly readable" on public.playlist_tracks;
 create policy "playlist_tracks are publicly readable"
   on public.playlist_tracks for select
   to anon
   using (true);
 
+drop policy if exists "authenticated users can read playlists" on public.playlists;
 create policy "authenticated users can read playlists"
   on public.playlists for select
   to authenticated
   using (true);
 
+drop policy if exists "authenticated users can insert playlists" on public.playlists;
 create policy "authenticated users can insert playlists"
   on public.playlists for insert
   to authenticated
   with check (true);
 
+drop policy if exists "authenticated users can update playlists" on public.playlists;
 create policy "authenticated users can update playlists"
   on public.playlists for update
   to authenticated
   using (true)
   with check (true);
 
+drop policy if exists "authenticated users can delete playlists" on public.playlists;
 create policy "authenticated users can delete playlists"
   on public.playlists for delete
   to authenticated
   using (true);
 
+drop policy if exists "authenticated users can read playlist_tracks" on public.playlist_tracks;
 create policy "authenticated users can read playlist_tracks"
   on public.playlist_tracks for select
   to authenticated
   using (true);
 
+drop policy if exists "authenticated users can insert playlist_tracks" on public.playlist_tracks;
 create policy "authenticated users can insert playlist_tracks"
   on public.playlist_tracks for insert
   to authenticated
   with check (true);
 
+drop policy if exists "authenticated users can delete playlist_tracks" on public.playlist_tracks;
 create policy "authenticated users can delete playlist_tracks"
   on public.playlist_tracks for delete
   to authenticated

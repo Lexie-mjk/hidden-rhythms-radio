@@ -26,11 +26,13 @@ create table if not exists public.soundcloud_artists (
 alter table public.tracks enable row level security;
 alter table public.soundcloud_artists enable row level security;
 
+drop policy if exists "tracks are publicly readable" on public.tracks;
 create policy "tracks are publicly readable"
   on public.tracks for select
   to anon
   using (true);
 
+drop policy if exists "soundcloud_artists are publicly readable" on public.soundcloud_artists;
 create policy "soundcloud_artists are publicly readable"
   on public.soundcloud_artists for select
   to anon
@@ -41,6 +43,7 @@ insert into storage.buckets (id, name, public)
 values ('tracks', 'tracks', true)
 on conflict (id) do nothing;
 
+drop policy if exists "tracks bucket is publicly readable" on storage.objects;
 create policy "tracks bucket is publicly readable"
   on storage.objects for select
   to anon

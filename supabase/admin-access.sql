@@ -1,4 +1,6 @@
 -- À exécuter une fois EN PLUS de schema.sql, pour autoriser la page /admin à écrire.
+-- Peut être ré-exécuté sans risque (chaque politique est supprimée puis recréée) —
+-- utile quand de nouvelles politiques sont ajoutées à ce fichier plus tard.
 --
 -- Étape préalable (une seule fois) : créer votre compte admin dans le Dashboard Supabase
 --   Authentication > Users > Add user > renseignez un email + mot de passe,
@@ -9,54 +11,64 @@
 -- utilisateurs authentifiés — c'est-à-dire uniquement les comptes que vous créez manuellement
 -- dans le Dashboard (il n'y a pas d'inscription publique dans l'app).
 
+drop policy if exists "authenticated users can read tracks" on public.tracks;
 create policy "authenticated users can read tracks"
   on public.tracks for select
   to authenticated
   using (true);
 
+drop policy if exists "authenticated users can insert tracks" on public.tracks;
 create policy "authenticated users can insert tracks"
   on public.tracks for insert
   to authenticated
   with check (true);
 
+drop policy if exists "authenticated users can update tracks" on public.tracks;
 create policy "authenticated users can update tracks"
   on public.tracks for update
   to authenticated
   using (true)
   with check (true);
 
+drop policy if exists "authenticated users can delete tracks" on public.tracks;
 create policy "authenticated users can delete tracks"
   on public.tracks for delete
   to authenticated
   using (true);
 
+drop policy if exists "authenticated users can read soundcloud_artists" on public.soundcloud_artists;
 create policy "authenticated users can read soundcloud_artists"
   on public.soundcloud_artists for select
   to authenticated
   using (true);
 
+drop policy if exists "authenticated users can insert soundcloud_artists" on public.soundcloud_artists;
 create policy "authenticated users can insert soundcloud_artists"
   on public.soundcloud_artists for insert
   to authenticated
   with check (true);
 
+drop policy if exists "authenticated users can update soundcloud_artists" on public.soundcloud_artists;
 create policy "authenticated users can update soundcloud_artists"
   on public.soundcloud_artists for update
   to authenticated
   using (true)
   with check (true);
 
+drop policy if exists "authenticated users can delete soundcloud_artists" on public.soundcloud_artists;
 create policy "authenticated users can delete soundcloud_artists"
   on public.soundcloud_artists for delete
   to authenticated
   using (true);
 
 -- Upload de fichiers (audio/pochettes) depuis le panel admin vers le bucket "tracks".
+drop policy if exists "authenticated users can upload to tracks bucket" on storage.objects;
 create policy "authenticated users can upload to tracks bucket"
   on storage.objects for insert
   to authenticated
   with check (bucket_id = 'tracks');
 
+drop policy if exists "authenticated users can delete from tracks bucket" on storage.objects;
 create policy "authenticated users can delete from tracks bucket"
   on storage.objects for delete
   to authenticated
