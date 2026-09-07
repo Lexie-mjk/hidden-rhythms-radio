@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import type { Href } from 'expo-router';
 import {
   Tabs,
   TabList,
@@ -20,7 +21,9 @@ export default function AppTabs() {
       <TabSlot style={{ height: '100%' }} />
       <TabList asChild>
         <CustomTabList>
-          <TabTrigger name="home" href="/" asChild>
+          {/* "/" est bien le chemin réel de l'écran (tabs)/index — expo-router n'inclut
+              pas ce raccourci dans les types générés pour un groupe, d'où le cast. */}
+          <TabTrigger name="home" href={'/' as Href} asChild>
             <TabButton>Radio</TabButton>
           </TabTrigger>
           <TabTrigger name="sets" href="/sets" asChild>
