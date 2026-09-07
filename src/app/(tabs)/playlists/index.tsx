@@ -7,7 +7,7 @@ import { fetchHiddenRhythmsPlaylists } from '@/api/soundcloud';
 import { fetchPlaylists } from '@/api/supabase';
 import { ArtistCard } from '@/components/ArtistCard';
 import { ThemedText } from '@/components/themed-text';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, MiniPlayerReservedSpace, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function PlaylistsScreen() {
@@ -27,7 +27,10 @@ export default function PlaylistsScreen() {
     <ScrollView
       contentContainerStyle={[
         styles.content,
-        { paddingTop: insets.top + Spacing.three, paddingBottom: insets.bottom + BottomTabInset + Spacing.three },
+        {
+          paddingTop: insets.top + Spacing.three,
+          paddingBottom: insets.bottom + BottomTabInset + MiniPlayerReservedSpace + Spacing.three,
+        },
       ]}>
       <ThemedText type="subtitle" style={styles.header}>
         Playlists SoundCloud

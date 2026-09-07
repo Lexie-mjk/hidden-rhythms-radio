@@ -8,7 +8,7 @@ import { fetchSoundCloudArtist } from '@/api/supabase';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { TrackListItem } from '@/components/TrackListItem';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, MiniPlayerReservedSpace, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { usePlayer } from '@/player/PlayerContext';
 
@@ -46,7 +46,7 @@ export default function ArtistDetailScreen() {
       style={styles.list}
       contentContainerStyle={[
         styles.content,
-        { paddingBottom: insets.bottom + BottomTabInset + Spacing.three },
+        { paddingBottom: insets.bottom + BottomTabInset + MiniPlayerReservedSpace + Spacing.three },
       ]}
       data={tracksQuery.data ?? []}
       keyExtractor={(item) => String(item.id)}
