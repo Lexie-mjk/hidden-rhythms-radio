@@ -89,7 +89,7 @@ Le thème sombre est l'inverse du clair (fond forêt profond, texte crème) — 
 ### Court terme
 - [ ] Logo en haute résolution (icône d'app, splash, icône adaptative Android correctement détourée).
 - [ ] Skip morceau précédent/suivant visible dans le mini-lecteur (déjà géré côté code, pas encore de bouton).
-- [ ] Surveiller la fiabilité de la Edge Function `soundcloud-proxy` : des 400 intermittents ont été observés sur les appels playlists/artistes (probablement lié au cache du token OAuth SoundCloud, à creuser si ça persiste).
+- [x] ~~Surveiller la fiabilité de la Edge Function `soundcloud-proxy`~~ — cause trouvée : SoundCloud limite les tokens `client_credentials` à 50/12h par app, et la fonction en redemandait un à chaque redémarrage à froid. Corrigé par un cache persistant en base (`soundcloud_oauth_cache`, voir `supabase/soundcloud-cache.sql`) qui survit aux redémarrages et renouvelle via `refresh_token` plutôt que de redemander un token neuf. **Si l'app affiche encore une erreur juste après ce fix, c'est que le quota des 12h précédentes n'est pas encore reset côté SoundCloud — patienter, pas la peine de re-tester en boucle.**
 
 ### Idées pour plus tard
 - [ ] Recherche/filtre dans le catalogue de sets.
