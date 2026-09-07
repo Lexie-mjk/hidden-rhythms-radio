@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import * as DocumentPicker from 'expo-document-picker';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
 import {
@@ -14,15 +15,23 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
+  addTrackToPlaylist,
+  deletePlaylist,
   deleteSoundCloudArtist,
   deleteTrack,
+  fetchPlaylists,
+  fetchPlaylistTracks,
   fetchSoundCloudArtists,
   fetchTracks,
+  insertPlaylist,
   insertSoundCloudArtist,
   insertTrack,
+  removeTrackFromPlaylist,
   signInAdmin,
   signOutAdmin,
   supabase,
+  uploadToTracksBucket,
+  type Track,
 } from '@/api/supabase';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -103,9 +112,21 @@ function AdminPanel({ session }: { session: Session }) {
       </ThemedView>
 
       <TracksAdmin />
+      <PlaylistsAdmin />
       <SoundCloudArtistsAdmin />
     </>
   );
+}
+
+/** Upload un fichier local vers le bucket "tracks" sous folder/, renvoie son URL publique. */
+async function pickAndUploadFile(folder: string, type: string): Promise<string | null> {
+  const result = await DocumentPicker.getDocumentAsync({ type });
+  if (result.canceled || !result.assets[0]) return null;
+  const asset = result.assets[0];
+  const blob = await (await fetch(asset.uri)).blob();
+  const extension = asset.name.includes('.') ? asset.name.split('.').pop() : undefined;
+  const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}${extension ? `.${extension}` : ''}`;
+  return uploadToTracksBucket(path, blob, asset.mimeType);
 }
 
 function TracksAdmin() {
@@ -114,8 +135,11 @@ function TracksAdmin() {
 
   const [title, setTitle] = useState('');
   const [artistName, setArtistName] = useState('');
-  const [audioUrl, setAudioUrl] = useState('');
-  const [coverUrl, setCoverUrl] = useState('');
+  const [audioFileName, setAudioFileName] = useState<string | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [coverFileName, setCoverFileName] = useState<string | null>(null);
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState<'audio' | 'cover' | null>(null);
 
   const addMutation = useMutation({
     mutationFn: insertTrack,
@@ -123,8 +147,10 @@ function TracksAdmin() {
       queryClient.invalidateQueries({ queryKey: ['tracks'] });
       setTitle('');
       setArtistName('');
-      setAudioUrl('');
-      setCoverUrl('');
+      setAudioFileName(null);
+      setAudioUrl(null);
+      setCoverFileName(null);
+      setCoverUrl(null);
     },
     onError: (e) => Alert.alert('Erreur', e instanceof Error ? e.message : String(e)),
   });
@@ -135,9 +161,37 @@ function TracksAdmin() {
     onError: (e) => Alert.alert('Erreur', e instanceof Error ? e.message : String(e)),
   });
 
+  async function handlePickAudio() {
+    setIsUploading('audio');
+    try {
+      const url = await pickAndUploadFile('audio', 'audio/*');
+      if (!url) return;
+      setAudioUrl(url);
+      setAudioFileName('fichier sélectionné');
+    } catch (e) {
+      Alert.alert('Erreur', e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsUploading(null);
+    }
+  }
+
+  async function handlePickCover() {
+    setIsUploading('cover');
+    try {
+      const url = await pickAndUploadFile('covers', 'image/*');
+      if (!url) return;
+      setCoverUrl(url);
+      setCoverFileName('pochette sélectionnée');
+    } catch (e) {
+      Alert.alert('Erreur', e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsUploading(null);
+    }
+  }
+
   return (
     <ThemedView style={styles.section}>
-      <ThemedText type="subtitle">Sets du collectif</ThemedText>
+      <ThemedText type="subtitle">Sets du collectif (Radio)</ThemedText>
 
       {tracks?.map((track) => (
         <View key={track.id} style={styles.listRow}>
@@ -155,13 +209,18 @@ function TracksAdmin() {
       </ThemedText>
       <FormField label="Titre" value={title} onChangeText={setTitle} />
       <FormField label="Artiste" value={artistName} onChangeText={setArtistName} />
-      <FormField
-        label="URL audio (fichier hébergé, ex: Supabase Storage)"
-        value={audioUrl}
-        onChangeText={setAudioUrl}
-        autoCapitalize="none"
+      <FilePickerField
+        label="Fichier audio"
+        fileName={audioFileName}
+        isUploading={isUploading === 'audio'}
+        onPress={handlePickAudio}
       />
-      <FormField label="URL pochette (optionnel)" value={coverUrl} onChangeText={setCoverUrl} autoCapitalize="none" />
+      <FilePickerField
+        label="Pochette (optionnel)"
+        fileName={coverFileName}
+        isUploading={isUploading === 'cover'}
+        onPress={handlePickCover}
+      />
       <SubmitButton
         label="Ajouter le set"
         disabled={addMutation.isPending || !title || !artistName || !audioUrl}
@@ -169,12 +228,145 @@ function TracksAdmin() {
           addMutation.mutate({
             title: title.trim(),
             artist_name: artistName.trim(),
-            audio_url: audioUrl.trim(),
-            cover_url: coverUrl.trim() || undefined,
+            audio_url: audioUrl as string,
+            cover_url: coverUrl ?? undefined,
           })
         }
       />
     </ThemedView>
+  );
+}
+
+function PlaylistsAdmin() {
+  const queryClient = useQueryClient();
+  const { data: playlists } = useQuery({ queryKey: ['playlists'], queryFn: fetchPlaylists });
+  const { data: tracks } = useQuery({ queryKey: ['tracks'], queryFn: fetchTracks });
+
+  const [name, setName] = useState('');
+  const [coverFileName, setCoverFileName] = useState<string | null>(null);
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [expandedPlaylistId, setExpandedPlaylistId] = useState<string | null>(null);
+
+  const addMutation = useMutation({
+    mutationFn: insertPlaylist,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['playlists'] });
+      setName('');
+      setCoverFileName(null);
+      setCoverUrl(null);
+    },
+    onError: (e) => Alert.alert('Erreur', e instanceof Error ? e.message : String(e)),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deletePlaylist,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['playlists'] }),
+    onError: (e) => Alert.alert('Erreur', e instanceof Error ? e.message : String(e)),
+  });
+
+  async function handlePickCover() {
+    setIsUploadingCover(true);
+    try {
+      const url = await pickAndUploadFile('playlist-covers', 'image/*');
+      if (!url) return;
+      setCoverUrl(url);
+      setCoverFileName('pochette sélectionnée');
+    } catch (e) {
+      Alert.alert('Erreur', e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsUploadingCover(false);
+    }
+  }
+
+  return (
+    <ThemedView style={styles.section}>
+      <ThemedText type="subtitle">Nos playlists</ThemedText>
+      <ThemedText type="small" themeColor="textSecondary">
+        Playlists composées de sets déjà hébergés ci-dessus. Les playlists SoundCloud de Hidden
+        Rhythms, elles, apparaissent automatiquement dans l’app — rien à faire ici.
+      </ThemedText>
+
+      {playlists?.map((playlist) => (
+        <View key={playlist.id}>
+          <View style={styles.listRow}>
+            <Pressable
+              style={styles.flex1}
+              onPress={() => setExpandedPlaylistId(expandedPlaylistId === playlist.id ? null : playlist.id)}>
+              <ThemedText numberOfLines={1}>{playlist.name}</ThemedText>
+            </Pressable>
+            <Pressable onPress={() => deleteMutation.mutate(playlist.id)}>
+              <DeleteIcon />
+            </Pressable>
+          </View>
+          {expandedPlaylistId === playlist.id && (
+            <PlaylistTrackPicker playlistId={playlist.id} allTracks={tracks ?? []} />
+          )}
+        </View>
+      ))}
+
+      <ThemedText type="smallBold" style={styles.formTitle}>
+        Créer une playlist
+      </ThemedText>
+      <FormField label="Nom" value={name} onChangeText={setName} />
+      <FilePickerField
+        label="Pochette (optionnel)"
+        fileName={coverFileName}
+        isUploading={isUploadingCover}
+        onPress={handlePickCover}
+      />
+      <SubmitButton
+        label="Créer la playlist"
+        disabled={addMutation.isPending || !name}
+        onPress={() => addMutation.mutate({ name: name.trim(), cover_url: coverUrl ?? undefined })}
+      />
+    </ThemedView>
+  );
+}
+
+function PlaylistTrackPicker({ playlistId, allTracks }: { playlistId: string; allTracks: Track[] }) {
+  const queryClient = useQueryClient();
+  const { data: playlistTracks } = useQuery({
+    queryKey: ['playlist-tracks', playlistId],
+    queryFn: () => fetchPlaylistTracks(playlistId),
+  });
+  const memberIds = new Set((playlistTracks ?? []).map((t) => t.id));
+
+  const toggleMutation = useMutation({
+    mutationFn: async (track: Track) => {
+      if (memberIds.has(track.id)) {
+        await removeTrackFromPlaylist(playlistId, track.id);
+      } else {
+        await addTrackToPlaylist(playlistId, track.id, memberIds.size);
+      }
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['playlist-tracks', playlistId] }),
+    onError: (e) => Alert.alert('Erreur', e instanceof Error ? e.message : String(e)),
+  });
+
+  return (
+    <View style={styles.trackPicker}>
+      {allTracks.map((track) => {
+        const isMember = memberIds.has(track.id);
+        return (
+          <Pressable
+            key={track.id}
+            style={styles.listRow}
+            onPress={() => toggleMutation.mutate(track)}
+            disabled={toggleMutation.isPending}>
+            <CheckIcon checked={isMember} />
+            <ThemedText style={styles.flex1} numberOfLines={1}>
+              {track.title}
+            </ThemedText>
+          </Pressable>
+        );
+      })}
+      {allTracks.length === 0 && (
+        <ThemedText type="small" themeColor="textSecondary">
+          Ajoutez d’abord des sets ci-dessus.
+        </ThemedText>
+      )}
+    </View>
   );
 }
 
@@ -277,6 +469,35 @@ function FormField(props: {
   );
 }
 
+function FilePickerField({
+  label,
+  fileName,
+  isUploading,
+  onPress,
+}: {
+  label: string;
+  fileName: string | null;
+  isUploading: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <View style={styles.field}>
+      <ThemedText type="small" themeColor="textSecondary">
+        {label}
+      </ThemedText>
+      <Pressable onPress={onPress} disabled={isUploading}>
+        <View style={[styles.input, styles.filePickerButton, { backgroundColor: theme.backgroundSelected }]}>
+          <ThemedText type="small" numberOfLines={1} style={styles.flex1}>
+            {isUploading ? 'Envoi en cours…' : (fileName ?? 'Choisir un fichier…')}
+          </ThemedText>
+          {isUploading && <ActivityIndicator size="small" color={theme.accent} />}
+        </View>
+      </Pressable>
+    </View>
+  );
+}
+
 function SubmitButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
   return (
     <Pressable onPress={onPress} disabled={disabled} style={disabled && styles.disabled}>
@@ -295,6 +516,21 @@ function DeleteIcon() {
     <SymbolView
       tintColor={theme.textSecondary}
       name={{ ios: 'trash', android: 'delete', web: 'delete' }}
+      size={18}
+    />
+  );
+}
+
+function CheckIcon({ checked }: { checked: boolean }) {
+  const theme = useTheme();
+  return (
+    <SymbolView
+      tintColor={checked ? theme.accent : theme.textSecondary}
+      name={{
+        ios: checked ? 'checkmark.circle.fill' : 'circle',
+        android: checked ? 'check_circle' : 'radio_button_unchecked',
+        web: checked ? 'check_circle' : 'radio_button_unchecked',
+      }}
       size={18}
     />
   );
@@ -332,6 +568,10 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingVertical: Spacing.one,
   },
+  trackPicker: {
+    paddingLeft: Spacing.three,
+    paddingBottom: Spacing.two,
+  },
   formTitle: {
     marginTop: Spacing.two,
   },
@@ -346,6 +586,11 @@ const styles = StyleSheet.create({
   inputMultiline: {
     minHeight: 80,
     textAlignVertical: 'top',
+  },
+  filePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
   },
   submitButton: {
     alignSelf: 'flex-start',

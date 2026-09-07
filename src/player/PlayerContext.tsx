@@ -27,7 +27,7 @@ type PlayerContextValue = {
   isPlaying: boolean;
   isBuffering: boolean;
   playLocalQueue: (tracks: Track[], startIndex?: number) => void;
-  playSoundCloudTrack: (track: SoundCloudTrack, artistName: string) => void;
+  playSoundCloudQueue: (tracks: SoundCloudTrack[], startIndex: number, contextLabel: string) => void;
   togglePlayPause: () => void;
   skipNext: () => void;
   skipPrevious: () => void;
@@ -40,18 +40,25 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   // --- Moteur SoundCloud (widget embarqué) ---
   const soundCloudWidgetRef = useRef<SoundCloudWidgetHandle>(null);
-  const [soundCloudTrack, setSoundCloudTrack] = useState<{
-    permalinkUrl: string;
-    title: string;
-    artist: string;
-    artworkUrl: string | null;
-  } | null>(null);
+  const [soundCloudQueue, setSoundCloudQueue] = useState<SoundCloudTrack[]>([]);
+  const [soundCloudIndex, setSoundCloudIndex] = useState(0);
+  const [soundCloudContextLabel, setSoundCloudContextLabel] = useState('');
   const [soundCloudPlaying, setSoundCloudPlaying] = useState(false);
 
-  const handleSoundCloudEvent = useCallback((event: { type: string }) => {
-    if (event.type === 'PLAY') setSoundCloudPlaying(true);
-    if (event.type === 'PAUSE' || event.type === 'FINISH') setSoundCloudPlaying(false);
-  }, []);
+  const handleSoundCloudEvent = useCallback(
+    (event: { type: string }) => {
+      if (event.type === 'PLAY') setSoundCloudPlaying(true);
+      if (event.type === 'PAUSE') setSoundCloudPlaying(false);
+      if (event.type === 'FINISH') {
+        // Enchaîne sur le morceau suivant de la file (boucle en fin de file), comme la radio locale.
+        setSoundCloudPlaying(false);
+        setSoundCloudIndex((current) =>
+          soundCloudQueue.length > 0 ? (current + 1) % soundCloudQueue.length : current
+        );
+      }
+    },
+    [soundCloudQueue.length]
+  );
 
   // --- Moteur local (catalogue propre du collectif) ---
   const localPlayer = useAudioPlayer(null);
@@ -110,19 +117,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     loadLocalTrack(localQueue, nextIndex);
   }
 
-  const playSoundCloudTrack = useCallback((track: SoundCloudTrack, artistName: string) => {
-    localPlayer.pause();
-    setSourceType('soundcloud');
-    setSoundCloudTrack({
-      permalinkUrl: track.permalink_url,
-      title: track.title,
-      artist: artistName,
-      artworkUrl: track.artwork_url,
-    });
-    setSoundCloudPlaying(true);
+  const playSoundCloudQueue = useCallback(
+    (tracks: SoundCloudTrack[], startIndex: number, contextLabel: string) => {
+      if (tracks.length === 0) return;
+      localPlayer.pause();
+      setSourceType('soundcloud');
+      setSoundCloudQueue(tracks);
+      setSoundCloudIndex(startIndex);
+      setSoundCloudContextLabel(contextLabel);
+      setSoundCloudPlaying(true);
+    },
     // localPlayer est stable (instance unique fournie par useAudioPlayer), pas besoin de le lister.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    []
+  );
 
   const togglePlayPause = useCallback(() => {
     if (sourceType === 'local') {
@@ -140,21 +148,23 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [localPlayer, localStatus.playing, soundCloudPlaying, sourceType]);
 
+  const soundCloudCurrentTrack = soundCloudQueue[soundCloudIndex];
+
   const nowPlaying: NowPlaying | null = useMemo(() => {
     if (sourceType === 'local') {
       const track = localQueue[localIndex];
       if (!track) return null;
       return { title: track.title, artist: track.artist_name, artworkUrl: track.cover_url };
     }
-    if (sourceType === 'soundcloud' && soundCloudTrack) {
+    if (sourceType === 'soundcloud' && soundCloudCurrentTrack) {
       return {
-        title: soundCloudTrack.title,
-        artist: soundCloudTrack.artist,
-        artworkUrl: soundCloudTrack.artworkUrl,
+        title: soundCloudCurrentTrack.title,
+        artist: soundCloudContextLabel,
+        artworkUrl: soundCloudCurrentTrack.artwork_url,
       };
     }
     return null;
-  }, [localIndex, localQueue, sourceType, soundCloudTrack]);
+  }, [localIndex, localQueue, sourceType, soundCloudContextLabel, soundCloudCurrentTrack]);
 
   const value: PlayerContextValue = {
     sourceType,
@@ -162,7 +172,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     isPlaying: sourceType === 'local' ? localStatus.playing : soundCloudPlaying,
     isBuffering: sourceType === 'local' && localStatus.isBuffering,
     playLocalQueue,
-    playSoundCloudTrack,
+    playSoundCloudQueue,
     togglePlayPause,
     skipNext,
     skipPrevious,
@@ -171,10 +181,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   return (
     <PlayerContext.Provider value={value}>
       {children}
-      {sourceType === 'soundcloud' && soundCloudTrack && (
+      {sourceType === 'soundcloud' && soundCloudCurrentTrack && (
         <SoundCloudWidgetPlayer
           ref={soundCloudWidgetRef}
-          trackUrl={soundCloudTrack.permalinkUrl}
+          trackUrl={soundCloudCurrentTrack.permalink_url}
           onEvent={handleSoundCloudEvent}
         />
       )}

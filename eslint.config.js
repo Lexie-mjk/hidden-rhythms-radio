@@ -5,6 +5,7 @@ const expoConfig = require("eslint-config-expo/flat");
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ["dist/*"],
+    // Fonctions Deno (Supabase Edge Functions) : runtime et conventions différentes, pas de projet TS partagé.
+    ignores: ["dist/*", "supabase/functions/**"],
   }
 ]);

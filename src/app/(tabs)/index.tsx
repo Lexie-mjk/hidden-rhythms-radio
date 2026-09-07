@@ -10,6 +10,7 @@ import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { usePlayer } from '@/player/PlayerContext';
+import { shuffle } from '@/utils/shuffle';
 
 export default function RadioScreen() {
   const insets = useSafeAreaInsets();
@@ -29,8 +30,10 @@ export default function RadioScreen() {
       return;
     }
     if (tracks && tracks.length > 0) {
-      // Lecture en boucle, ordre du catalogue (pas de synchronisation entre auditeurs).
-      playLocalQueue(tracks, 0);
+      // Lecture aléatoire en boucle (pas de synchronisation entre auditeurs) : on mélange une
+      // fois au lancement, playLocalQueue reste par ailleurs un moteur à ordre fixe (réutilisé
+      // tel quel par les playlists, où l'ordre doit être respecté).
+      playLocalQueue(shuffle(tracks), 0);
     }
   }
 
@@ -46,7 +49,7 @@ export default function RadioScreen() {
           Radio du collectif
         </ThemedText>
         <ThemedText themeColor="textSecondary" style={styles.centerText}>
-          Nos morceaux et sets, en continu.
+          Tous nos morceaux, en aléatoire et en continu.
         </ThemedText>
 
         {isRadioActive && nowPlaying?.artworkUrl ? (

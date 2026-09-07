@@ -75,6 +75,43 @@ export async function fetchSoundCloudArtist(id: string): Promise<SoundCloudArtis
   return data;
 }
 
+// --- Playlists "maison" (morceaux Supabase groupés), distinctes des playlists SoundCloud
+// qui sont récupérées en direct depuis l'API et ne sont jamais stockées ici. ---
+
+export type Playlist = {
+  id: string;
+  name: string;
+  cover_url: string | null;
+  created_at: string;
+};
+
+export async function fetchPlaylists(): Promise<Playlist[]> {
+  const { data, error } = await supabase
+    .from('playlists')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function fetchPlaylist(id: string): Promise<Playlist> {
+  const { data, error } = await supabase.from('playlists').select('*').eq('id', id).single();
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchPlaylistTracks(playlistId: string): Promise<Track[]> {
+  const { data, error } = await supabase
+    .from('playlist_tracks')
+    .select('position, tracks(*)')
+    .eq('playlist_id', playlistId)
+    .order('position', { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []).map((row) => row.tracks as unknown as Track);
+}
+
 // --- Admin : authentification et écriture (nécessite un compte Supabase Auth, voir supabase/admin-access.sql) ---
 
 export async function signInAdmin(email: string, password: string) {
@@ -120,4 +157,51 @@ export async function insertSoundCloudArtist(artist: NewSoundCloudArtist): Promi
 export async function deleteSoundCloudArtist(id: string): Promise<void> {
   const { error } = await supabase.from('soundcloud_artists').delete().eq('id', id);
   if (error) throw error;
+}
+
+export type NewPlaylist = {
+  name: string;
+  cover_url?: string;
+};
+
+export async function insertPlaylist(playlist: NewPlaylist): Promise<Playlist> {
+  const { data, error } = await supabase.from('playlists').insert(playlist).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deletePlaylist(id: string): Promise<void> {
+  const { error } = await supabase.from('playlists').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function addTrackToPlaylist(
+  playlistId: string,
+  trackId: string,
+  position = 0
+): Promise<void> {
+  const { error } = await supabase
+    .from('playlist_tracks')
+    .insert({ playlist_id: playlistId, track_id: trackId, position });
+  if (error) throw error;
+}
+
+export async function removeTrackFromPlaylist(playlistId: string, trackId: string): Promise<void> {
+  const { error } = await supabase
+    .from('playlist_tracks')
+    .delete()
+    .eq('playlist_id', playlistId)
+    .eq('track_id', trackId);
+  if (error) throw error;
+}
+
+/** Upload un fichier (audio ou pochette) vers le bucket public "tracks" et renvoie son URL publique. */
+export async function uploadToTracksBucket(
+  path: string,
+  file: Blob,
+  contentType?: string
+): Promise<string> {
+  const { error } = await supabase.storage.from('tracks').upload(path, file, { contentType });
+  if (error) throw error;
+  return supabase.storage.from('tracks').getPublicUrl(path).data.publicUrl;
 }

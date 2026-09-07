@@ -50,3 +50,14 @@ create policy "authenticated users can delete soundcloud_artists"
   on public.soundcloud_artists for delete
   to authenticated
   using (true);
+
+-- Upload de fichiers (audio/pochettes) depuis le panel admin vers le bucket "tracks".
+create policy "authenticated users can upload to tracks bucket"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'tracks');
+
+create policy "authenticated users can delete from tracks bucket"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'tracks');

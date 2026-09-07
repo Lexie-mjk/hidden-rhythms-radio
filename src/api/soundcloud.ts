@@ -1,10 +1,17 @@
-const clientId = process.env.EXPO_PUBLIC_SOUNDCLOUD_CLIENT_ID;
+import { supabase } from '@/api/supabase';
 
-if (!clientId) {
-  throw new Error('EXPO_PUBLIC_SOUNDCLOUD_CLIENT_ID doit être défini (voir .env.example).');
+// SoundCloud exige désormais un token OAuth2 (client_credentials) pour tout appel de métadonnées,
+// ce qui nécessite un client_secret — un vrai secret, jamais embarqué côté app. Ces appels passent
+// donc par une Supabase Edge Function (voir supabase/functions/soundcloud-proxy) qui détient ce
+// secret et fait le proxy. La lecture audio (Widget WebView) n'est pas concernée : elle reste publique.
+
+const accountUrl = process.env.EXPO_PUBLIC_SOUNDCLOUD_ACCOUNT_URL;
+
+if (!accountUrl) {
+  throw new Error('EXPO_PUBLIC_SOUNDCLOUD_ACCOUNT_URL doit être défini (voir .env.example).');
 }
 
-const API_BASE = 'https://api.soundcloud.com';
+export const HIDDEN_RHYTHMS_ACCOUNT_URL = accountUrl;
 
 export type SoundCloudUser = {
   id: number;
@@ -25,42 +32,41 @@ export type SoundCloudTrack = {
   embeddable_by: string;
 };
 
-async function scGet<T>(path: string, params: Record<string, string> = {}): Promise<T> {
-  const url = new URL(`${API_BASE}${path}`);
-  url.searchParams.set('client_id', clientId as string);
-  for (const [key, value] of Object.entries(params)) {
-    url.searchParams.set(key, value);
-  }
+export type SoundCloudPlaylist = {
+  id: number;
+  title: string;
+  permalink_url: string;
+  artwork_url: string | null;
+  track_count: number;
+  tracks: SoundCloudTrack[];
+};
 
-  const response = await fetch(url.toString());
-  if (!response.ok) {
-    throw new Error(`SoundCloud API ${path} a échoué (${response.status})`);
-  }
-  return response.json() as Promise<T>;
+async function callProxy<T>(action: string, params: Record<string, string> = {}): Promise<T> {
+  const { data, error } = await supabase.functions.invoke('soundcloud-proxy', {
+    body: { action, ...params },
+  });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+  return data as T;
 }
 
-/**
- * Résout un profil artiste à partir de son URL publique SoundCloud
- * (ex: https://soundcloud.com/nom-artiste), stockée dans Supabase.
- */
 export function resolveArtistByUrl(permalinkUrl: string): Promise<SoundCloudUser> {
-  return scGet<SoundCloudUser>('/resolve', { url: permalinkUrl });
+  return callProxy<SoundCloudUser>('resolve-user', { url: permalinkUrl });
 }
 
 export function fetchArtistTracks(userId: number): Promise<SoundCloudTrack[]> {
-  return scGet<SoundCloudTrack[]>(`/users/${userId}/tracks`, { limit: '50' });
+  return callProxy<SoundCloudTrack[]>('user-tracks', { userId: String(userId) });
+}
+
+function fetchUserPlaylists(userId: number): Promise<SoundCloudPlaylist[]> {
+  return callProxy<SoundCloudPlaylist[]>('user-playlists', { userId: String(userId) });
 }
 
 /**
- * Ne jamais utiliser /tracks/{id}/streams : l'accès au streaming brut est restreint
- * par SoundCloud pour la plupart des apps. La lecture passe par le Widget officiel.
+ * Toutes les playlists publiques du compte SoundCloud du collectif (Hidden Rhythms) —
+ * pas de curation manuelle, tout ce qui est publié là-bas apparaît automatiquement.
  */
-export function buildWidgetUrl(trackPermalinkUrl: string): string {
-  const url = new URL('https://w.soundcloud.com/player/');
-  url.searchParams.set('url', trackPermalinkUrl);
-  url.searchParams.set('auto_play', 'true');
-  url.searchParams.set('visual', 'false');
-  url.searchParams.set('show_comments', 'false');
-  url.searchParams.set('show_user', 'true');
-  return url.toString();
+export async function fetchHiddenRhythmsPlaylists(): Promise<SoundCloudPlaylist[]> {
+  const account = await resolveArtistByUrl(HIDDEN_RHYTHMS_ACCOUNT_URL);
+  return fetchUserPlaylists(account.id);
 }

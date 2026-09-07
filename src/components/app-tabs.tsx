@@ -20,8 +20,8 @@ export default function AppTabs() {
         />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="sets">
-        <NativeTabs.Trigger.Label>Sets</NativeTabs.Trigger.Label>
+      <NativeTabs.Trigger name="playlists">
+        <NativeTabs.Trigger.Label>Playlist</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           src={require('@/assets/images/tabIcons/explore.png')}
           renderingMode="template"

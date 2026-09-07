@@ -26,8 +26,8 @@ export default function AppTabs() {
           <TabTrigger name="home" href={'/' as Href} asChild>
             <TabButton>Radio</TabButton>
           </TabTrigger>
-          <TabTrigger name="sets" href="/sets" asChild>
-            <TabButton>Sets</TabButton>
+          <TabTrigger name="playlists" href="/playlists" asChild>
+            <TabButton>Playlist</TabButton>
           </TabTrigger>
           <TabTrigger name="artists" href="/artists" asChild>
             <TabButton>Artistes</TabButton>

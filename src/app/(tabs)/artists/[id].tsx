@@ -16,7 +16,7 @@ export default function ArtistDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const { playSoundCloudTrack } = usePlayer();
+  const { playSoundCloudQueue } = usePlayer();
 
   const artistQuery = useQuery({
     queryKey: ['soundcloud-artist', id],
@@ -72,12 +72,12 @@ export default function ArtistDetailScreen() {
         ) : null
       }
       ListFooterComponent={isLoading ? <ActivityIndicator color={theme.accent} style={styles.loader} /> : null}
-      renderItem={({ item }) => (
+      renderItem={({ item, index }) => (
         <TrackListItem
           title={item.title}
           subtitle="SoundCloud"
           artworkUrl={item.artwork_url}
-          onPress={() => playSoundCloudTrack(item, artistName)}
+          onPress={() => playSoundCloudQueue(tracksQuery.data ?? [], index, artistName)}
         />
       )}
     />
