@@ -77,7 +77,7 @@ export default function ArtistDetailScreen() {
           title={item.title}
           subtitle="SoundCloud"
           artworkUrl={item.artwork_url}
-          onPress={() => playSoundCloudQueue(tracksQuery.data ?? [], index, artistName)}
+          onPress={() => playSoundCloudQueue(tracksQuery.data ?? [], index, artistName, 'artist')}
         />
       )}
     />

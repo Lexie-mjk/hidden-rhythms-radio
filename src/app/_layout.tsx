@@ -36,6 +36,9 @@ export default function RootLayout() {
                   headerTintColor: theme.text,
                 }}
               />
+              {/* Lecteur plein écran, ouvert en tapant le mini-lecteur — modal partout,
+                  y compris web où le geste natif de fermeture n'existe pas (bouton dédié). */}
+              <Stack.Screen name="player" options={{ presentation: 'modal' }} />
             </Stack>
             <MiniPlayer />
           </View>

@@ -13,8 +13,14 @@ import {
 import type { SoundCloudTrack } from '@/api/soundcloud';
 import type { Track } from '@/api/supabase';
 import { SoundCloudWidgetPlayer, type SoundCloudWidgetHandle } from '@/player/SoundCloudWidgetPlayer';
+import { shuffle } from '@/utils/shuffle';
 
 type SourceType = 'local' | 'soundcloud' | 'none';
+
+// D'où vient la file en cours — détermine ce que l'écran plein écran propose : la Radio
+// reste un flux continu sans retour arrière ni mélange (déjà aléatoire par nature), les
+// playlists ont précédent/suivant/mélanger, les pages Artiste ont précédent/suivant seul.
+type QueueContext = 'radio' | 'playlist' | 'artist' | null;
 
 type NowPlaying = {
   title: string;
@@ -24,20 +30,28 @@ type NowPlaying = {
 
 type PlayerContextValue = {
   sourceType: SourceType;
+  queueContext: QueueContext;
   nowPlaying: NowPlaying | null;
   isPlaying: boolean;
   isBuffering: boolean;
-  playLocalQueue: (tracks: Track[], startIndex?: number) => void;
-  playSoundCloudQueue: (tracks: SoundCloudTrack[], startIndex: number, contextLabel: string) => void;
+  playLocalQueue: (tracks: Track[], startIndex?: number, context?: QueueContext) => void;
+  playSoundCloudQueue: (
+    tracks: SoundCloudTrack[],
+    startIndex: number,
+    contextLabel: string,
+    context?: QueueContext
+  ) => void;
   togglePlayPause: () => void;
   skipNext: () => void;
   skipPrevious: () => void;
+  shuffleQueue: () => void;
 };
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const [sourceType, setSourceType] = useState<SourceType>('none');
+  const [queueContext, setQueueContext] = useState<QueueContext>(null);
 
   // Sans ça, iOS garde la catégorie de session audio par défaut : le bouton silencieux coupe
   // le son sur le haut-parleur du téléphone, mais pas sur un accessoire Bluetooth déjà connecté
@@ -95,10 +109,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   );
 
   const playLocalQueue = useCallback(
-    (tracks: Track[], startIndex = 0) => {
+    (tracks: Track[], startIndex = 0, context: QueueContext = null) => {
       if (tracks.length === 0) return;
       soundCloudWidgetRef.current?.pause();
       setSourceType('local');
+      setQueueContext(context);
       setLocalQueue(tracks);
       setLocalIndex(startIndex);
       loadLocalTrack(tracks, startIndex);
@@ -107,18 +122,48 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   );
 
   const skipNext = useCallback(() => {
-    if (localQueue.length === 0) return;
-    const nextIndex = (localIndex + 1) % localQueue.length;
-    setLocalIndex(nextIndex);
-    loadLocalTrack(localQueue, nextIndex);
-  }, [localIndex, localQueue, loadLocalTrack]);
+    if (sourceType === 'local') {
+      if (localQueue.length === 0) return;
+      const nextIndex = (localIndex + 1) % localQueue.length;
+      setLocalIndex(nextIndex);
+      loadLocalTrack(localQueue, nextIndex);
+    } else if (sourceType === 'soundcloud') {
+      if (soundCloudQueue.length === 0) return;
+      setSoundCloudIndex((current) => (current + 1) % soundCloudQueue.length);
+      setSoundCloudPlaying(true);
+    }
+  }, [sourceType, localIndex, localQueue, loadLocalTrack, soundCloudQueue.length]);
 
   const skipPrevious = useCallback(() => {
-    if (localQueue.length === 0) return;
-    const previousIndex = (localIndex - 1 + localQueue.length) % localQueue.length;
-    setLocalIndex(previousIndex);
-    loadLocalTrack(localQueue, previousIndex);
-  }, [localIndex, localQueue, loadLocalTrack]);
+    if (sourceType === 'local') {
+      if (localQueue.length === 0) return;
+      const previousIndex = (localIndex - 1 + localQueue.length) % localQueue.length;
+      setLocalIndex(previousIndex);
+      loadLocalTrack(localQueue, previousIndex);
+    } else if (sourceType === 'soundcloud') {
+      if (soundCloudQueue.length === 0) return;
+      setSoundCloudIndex((current) => (current - 1 + soundCloudQueue.length) % soundCloudQueue.length);
+      setSoundCloudPlaying(true);
+    }
+  }, [sourceType, localIndex, localQueue, loadLocalTrack, soundCloudQueue.length]);
+
+  const shuffleQueue = useCallback(() => {
+    // Garde le morceau en cours en tête de la nouvelle file : la lecture n'est pas interrompue,
+    // seul l'ordre du "suivant" change.
+    if (sourceType === 'local') {
+      if (localQueue.length < 2) return;
+      const current = localQueue[localIndex];
+      const rest = localQueue.filter((_, i) => i !== localIndex);
+      setLocalQueue([current, ...shuffle(rest)]);
+      setLocalIndex(0);
+    } else if (sourceType === 'soundcloud') {
+      if (soundCloudQueue.length < 2) return;
+      const current = soundCloudQueue[soundCloudIndex];
+      const rest = soundCloudQueue.filter((_, i) => i !== soundCloudIndex);
+      setSoundCloudQueue([current, ...shuffle(rest)]);
+      setSoundCloudIndex(0);
+    }
+  }, [sourceType, localIndex, localQueue, soundCloudIndex, soundCloudQueue]);
 
   // Boucle de la radio : à la fin d'un morceau, on enchaîne automatiquement sur le suivant.
   // Ajustement d'état conditionnel pendant le rendu (pattern recommandé par la doc expo-audio),
@@ -131,10 +176,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }
 
   const playSoundCloudQueue = useCallback(
-    (tracks: SoundCloudTrack[], startIndex: number, contextLabel: string) => {
+    (tracks: SoundCloudTrack[], startIndex: number, contextLabel: string, context: QueueContext = null) => {
       if (tracks.length === 0) return;
       localPlayer.pause();
       setSourceType('soundcloud');
+      setQueueContext(context);
       setSoundCloudQueue(tracks);
       setSoundCloudIndex(startIndex);
       setSoundCloudContextLabel(contextLabel);
@@ -181,6 +227,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const value: PlayerContextValue = {
     sourceType,
+    queueContext,
     nowPlaying,
     isPlaying: sourceType === 'local' ? localStatus.playing : soundCloudPlaying,
     isBuffering: sourceType === 'local' && localStatus.isBuffering,
@@ -189,6 +236,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     togglePlayPause,
     skipNext,
     skipPrevious,
+    shuffleQueue,
   };
 
   return (

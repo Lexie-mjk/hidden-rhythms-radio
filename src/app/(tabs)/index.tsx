@@ -33,7 +33,7 @@ export default function RadioScreen() {
       // Lecture aléatoire en boucle (pas de synchronisation entre auditeurs) : on mélange une
       // fois au lancement, playLocalQueue reste par ailleurs un moteur à ordre fixe (réutilisé
       // tel quel par les playlists, où l'ordre doit être respecté).
-      playLocalQueue(shuffle(tracks), 0);
+      playLocalQueue(shuffle(tracks), 0, 'radio');
     }
   }
 

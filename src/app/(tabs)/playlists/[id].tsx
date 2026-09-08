@@ -47,7 +47,7 @@ function SoundCloudPlaylistScreen({ soundCloudId }: { soundCloudId: number }) {
           title={track.title}
           subtitle="SoundCloud"
           artworkUrl={track.artwork_url}
-          onPress={() => playSoundCloudQueue(tracks, index, playlist?.title ?? '')}
+          onPress={() => playSoundCloudQueue(tracks, index, playlist?.title ?? '', 'playlist')}
         />
       )}
     />
@@ -82,7 +82,7 @@ function LocalPlaylistScreen({ playlistId }: { playlistId: string }) {
           title={track.title}
           subtitle={track.artist_name}
           artworkUrl={track.cover_url}
-          onPress={() => playLocalQueue(tracks, index)}
+          onPress={() => playLocalQueue(tracks, index, 'playlist')}
         />
       )}
     />
