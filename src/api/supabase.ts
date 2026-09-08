@@ -175,6 +175,14 @@ export async function deletePlaylist(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function updatePlaylist(
+  id: string,
+  changes: { name?: string; cover_url?: string }
+): Promise<void> {
+  const { error } = await supabase.from('playlists').update(changes).eq('id', id);
+  if (error) throw error;
+}
+
 export async function addTrackToPlaylist(
   playlistId: string,
   trackId: string,
@@ -201,7 +209,12 @@ export async function removeTrackFromPlaylist(playlistId: string, trackId: strin
  * identifiants R2, jamais exposés côté client) ; le fichier est ensuite envoyé directement
  * à R2 sans passer par Supabase — indispensable pour des fichiers audio volumineux.
  */
-export async function uploadToR2(path: string, file: Blob, contentType?: string): Promise<string> {
+export async function uploadToR2(
+  path: string,
+  file: Blob,
+  contentType?: string,
+  onProgress?: (fraction: number) => void
+): Promise<string> {
   const { data, error } = await supabase.functions.invoke('r2-upload-url', {
     body: { path, contentType: contentType ?? 'application/octet-stream' },
   });
@@ -210,24 +223,35 @@ export async function uploadToR2(path: string, file: Blob, contentType?: string)
 
   const { uploadUrl, publicUrl } = data as { uploadUrl: string; publicUrl: string };
 
-  let uploadResponse: Response;
-  try {
-    uploadResponse = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': contentType ?? 'application/octet-stream' },
-      body: file,
-    });
-  } catch {
-    // Sur web, fetch() rejette (sans statut HTTP exploitable) quand le bucket R2 bloque la
-    // requête cross-origin faute de politique CORS — la cause la plus fréquente ici.
-    throw new Error(
-      "Échec réseau lors de l'envoi vers R2. Si vous testez depuis un navigateur, vérifiez la " +
-        'politique CORS du bucket (Cloudflare > R2 > bucket > Settings > CORS Policy) : elle doit ' +
-        'autoriser PUT depuis votre origine.'
-    );
-  }
-  if (!uploadResponse.ok) {
-    throw new Error(`Échec de l'upload vers R2 (${uploadResponse.status})`);
-  }
+  // XMLHttpRequest plutôt que fetch : c'est le seul moyen (web + natif) d'obtenir une
+  // progression d'upload, utile vu la taille de certains fichiers audio.
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl);
+    xhr.setRequestHeader('Content-Type', contentType ?? 'application/octet-stream');
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress?.(event.loaded / event.total);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+      } else {
+        reject(new Error(`Échec de l'upload vers R2 (${xhr.status})`));
+      }
+    };
+    xhr.onerror = () => {
+      // Sur web, cet évènement se déclenche (sans statut HTTP exploitable) quand le bucket R2
+      // bloque la requête cross-origin faute de politique CORS — la cause la plus fréquente ici.
+      reject(
+        new Error(
+          "Échec réseau lors de l'envoi vers R2. Si vous testez depuis un navigateur, vérifiez " +
+            'la politique CORS du bucket (Cloudflare > R2 > bucket > Settings > CORS Policy) : ' +
+            'elle doit autoriser PUT depuis votre origine.'
+        )
+      );
+    };
+    xhr.send(file);
+  });
+
   return publicUrl;
 }
