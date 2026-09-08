@@ -59,6 +59,11 @@ async function createUploadUrl(path: string, contentType: string) {
     region: 'auto',
     endpoint: `https://${config.accountId}.r2.cloudflarestorage.com`,
     credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey },
+    // Les versions récentes du SDK ajoutent par défaut un checksum CRC32 (x-amz-checksum-*)
+    // à la requête signée — R2 ne le supporte pas et rejette la requête d'une façon que le
+    // navigateur rapporte comme un blocage CORS. On revient au comportement précédent : pas
+    // de checksum sauf si explicitement demandé.
+    requestChecksumCalculation: 'WHEN_REQUIRED',
   });
   const command = new PutObjectCommand({
     Bucket: config.bucketName,

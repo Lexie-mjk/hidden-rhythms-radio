@@ -1,8 +1,9 @@
-import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -37,6 +38,18 @@ const PlayerContext = createContext<PlayerContextValue | null>(null);
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const [sourceType, setSourceType] = useState<SourceType>('none');
+
+  // Sans ça, iOS garde la catégorie de session audio par défaut : le bouton silencieux coupe
+  // le son sur le haut-parleur du téléphone, mais pas sur un accessoire Bluetooth déjà connecté
+  // (d'où "ça marche seulement au casque"). playsInSilentMode force la lecture même en mode
+  // silencieux ; shouldPlayInBackground correspond au plugin expo-audio déjà activé (app.json).
+  useEffect(() => {
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'doNotMix',
+    });
+  }, []);
 
   // --- Moteur SoundCloud (widget embarqué) ---
   const soundCloudWidgetRef = useRef<SoundCloudWidgetHandle>(null);

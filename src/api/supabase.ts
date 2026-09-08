@@ -205,15 +205,27 @@ export async function uploadToR2(path: string, file: Blob, contentType?: string)
   const { data, error } = await supabase.functions.invoke('r2-upload-url', {
     body: { path, contentType: contentType ?? 'application/octet-stream' },
   });
-  if (error) throw error;
+  if (error) throw new Error(`Impossible d'obtenir une URL d'upload : ${error.message}`);
   if (data?.error) throw new Error(data.error);
 
   const { uploadUrl, publicUrl } = data as { uploadUrl: string; publicUrl: string };
-  const uploadResponse = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': contentType ?? 'application/octet-stream' },
-    body: file,
-  });
+
+  let uploadResponse: Response;
+  try {
+    uploadResponse = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': contentType ?? 'application/octet-stream' },
+      body: file,
+    });
+  } catch {
+    // Sur web, fetch() rejette (sans statut HTTP exploitable) quand le bucket R2 bloque la
+    // requête cross-origin faute de politique CORS — la cause la plus fréquente ici.
+    throw new Error(
+      "Échec réseau lors de l'envoi vers R2. Si vous testez depuis un navigateur, vérifiez la " +
+        'politique CORS du bucket (Cloudflare > R2 > bucket > Settings > CORS Policy) : elle doit ' +
+        'autoriser PUT depuis votre origine.'
+    );
+  }
   if (!uploadResponse.ok) {
     throw new Error(`Échec de l'upload vers R2 (${uploadResponse.status})`);
   }
