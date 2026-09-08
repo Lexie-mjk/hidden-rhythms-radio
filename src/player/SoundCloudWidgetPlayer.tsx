@@ -69,7 +69,13 @@ export const SoundCloudWidgetPlayer = forwardRef<SoundCloudWidgetHandle, Props>(
     return (
       <WebView
         ref={webViewRef}
+        // `style` ne s'applique qu'à la vue native interne. react-native-webview enveloppe
+        // TOUJOURS celle-ci dans un <View style={{ flex: 1 }}> (cf. WebView.styles.js), et ce
+        // conteneur n'est atteignable que via `containerStyle`. Sans lui, il réclame la moitié
+        // de la hauteur de la colonne racine dès que le widget est monté : l'app est comprimée
+        // sur la moitié haute de l'écran et le bas vire au blanc (fond par défaut du conteneur).
         style={styles.hidden}
+        containerStyle={styles.hidden}
         source={{ html: buildWrapperHtml(trackUrl) }}
         onMessage={handleMessage}
         allowsInlineMediaPlayback
@@ -82,6 +88,7 @@ export const SoundCloudWidgetPlayer = forwardRef<SoundCloudWidgetHandle, Props>(
 
 const styles = StyleSheet.create({
   // Le widget n'a pas besoin d'être visible : on pilote juste l'audio, l'UI est notre MiniPlayer.
+  // Appliqué à la fois à `style` et à `containerStyle` — voir le commentaire ci-dessus.
   hidden: {
     position: 'absolute',
     width: 1,

@@ -195,13 +195,27 @@ export async function removeTrackFromPlaylist(playlistId: string, trackId: strin
   if (error) throw error;
 }
 
-/** Upload un fichier (audio ou pochette) vers le bucket public "tracks" et renvoie son URL publique. */
-export async function uploadToTracksBucket(
-  path: string,
-  file: Blob,
-  contentType?: string
-): Promise<string> {
-  const { error } = await supabase.storage.from('tracks').upload(path, file, { contentType });
+/**
+ * Upload un fichier (audio ou pochette) vers Cloudflare R2 et renvoie son URL publique.
+ * La Edge Function r2-upload-url signe une URL PUT de courte durée (elle détient les
+ * identifiants R2, jamais exposés côté client) ; le fichier est ensuite envoyé directement
+ * à R2 sans passer par Supabase — indispensable pour des fichiers audio volumineux.
+ */
+export async function uploadToR2(path: string, file: Blob, contentType?: string): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('r2-upload-url', {
+    body: { path, contentType: contentType ?? 'application/octet-stream' },
+  });
   if (error) throw error;
-  return supabase.storage.from('tracks').getPublicUrl(path).data.publicUrl;
+  if (data?.error) throw new Error(data.error);
+
+  const { uploadUrl, publicUrl } = data as { uploadUrl: string; publicUrl: string };
+  const uploadResponse = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': contentType ?? 'application/octet-stream' },
+    body: file,
+  });
+  if (!uploadResponse.ok) {
+    throw new Error(`Échec de l'upload vers R2 (${uploadResponse.status})`);
+  }
+  return publicUrl;
 }

@@ -20,7 +20,9 @@ export function ArtistCard({ name, avatarUrl, onPress }: Props) {
         ) : (
           <ThemedView type="backgroundElement" style={styles.avatar} />
         )}
-        <ThemedText type="default">{name}</ThemedText>
+        <ThemedText type="default" numberOfLines={1} style={styles.name}>
+          {name}
+        </ThemedText>
       </ThemedView>
     </Pressable>
   );
@@ -36,6 +38,9 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
+  },
+  name: {
+    flex: 1,
   },
   avatar: {
     width: 52,

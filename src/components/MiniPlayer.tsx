@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -8,14 +9,22 @@ import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { usePlayer } from '@/player/PlayerContext';
 
+/**
+ * Bandeau flottant monté dans le layout racine (app/_layout.tsx), au-dessus du Stack.
+ */
 export function MiniPlayer() {
   const { nowPlaying, isPlaying, isBuffering, togglePlayPause } = usePlayer();
+  const insets = useSafeAreaInsets();
   const theme = useTheme();
 
   if (!nowPlaying) return null;
 
+  // BottomTabInset ne couvre que la hauteur de la barre elle-même : il faut y ajouter
+  // la zone de sécurité basse (barre d'accueil iOS), sinon le bandeau la recouvre.
+  const bottom = insets.bottom + BottomTabInset + Spacing.two;
+
   return (
-    <ThemedView type="backgroundElement" style={[styles.container, { bottom: BottomTabInset }]}>
+    <ThemedView type="backgroundElement" style={[styles.container, { bottom }]}>
       {nowPlaying.artworkUrl ? (
         <Image source={{ uri: nowPlaying.artworkUrl }} style={styles.artwork} />
       ) : (

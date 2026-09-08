@@ -30,7 +30,7 @@ import {
   signInAdmin,
   signOutAdmin,
   supabase,
-  uploadToTracksBucket,
+  uploadToR2,
   type Track,
 } from '@/api/supabase';
 import { ThemedText } from '@/components/themed-text';
@@ -118,7 +118,7 @@ function AdminPanel({ session }: { session: Session }) {
   );
 }
 
-/** Upload un fichier local vers le bucket "tracks" sous folder/, renvoie son URL publique. */
+/** Upload un fichier local vers R2 sous folder/, renvoie son URL publique. */
 async function pickAndUploadFile(folder: string, type: string): Promise<string | null> {
   const result = await DocumentPicker.getDocumentAsync({ type });
   if (result.canceled || !result.assets[0]) return null;
@@ -126,7 +126,7 @@ async function pickAndUploadFile(folder: string, type: string): Promise<string |
   const blob = await (await fetch(asset.uri)).blob();
   const extension = asset.name.includes('.') ? asset.name.split('.').pop() : undefined;
   const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}${extension ? `.${extension}` : ''}`;
-  return uploadToTracksBucket(path, blob, asset.mimeType);
+  return uploadToR2(path, blob, asset.mimeType ?? undefined);
 }
 
 function TracksAdmin() {
