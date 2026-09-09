@@ -31,7 +31,7 @@ export default function AppTabs() {
       <NativeTabs.Trigger name="artists">
         <NativeTabs.Trigger.Label>Artistes</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
+          src={require('@/assets/images/tabIcons/artists.png')}
           renderingMode="template"
         />
       </NativeTabs.Trigger>

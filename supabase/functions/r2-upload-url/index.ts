@@ -9,7 +9,7 @@
 //   supabase secrets set R2_ACCOUNT_ID=... R2_ACCESS_KEY_ID=... R2_SECRET_ACCESS_KEY=... \
 //     R2_BUCKET_NAME=... R2_PUBLIC_URL_BASE=...
 
-import { PutObjectCommand, S3Client } from 'npm:@aws-sdk/client-s3@3';
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from 'npm:@aws-sdk/client-s3@3';
 import { getSignedUrl } from 'npm:@aws-sdk/s3-request-presigner@3';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@^2/cors';
@@ -23,6 +23,17 @@ const serviceRoleKey =
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ??
   JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') ?? '{}').default;
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+
+function r2Client(config: ReturnType<typeof getR2Config>) {
+  return new S3Client({
+    region: 'auto',
+    endpoint: `https://${config.accountId}.r2.cloudflarestorage.com`,
+    credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey },
+    // cf. createUploadUrl ci-dessous : R2 rejette le checksum CRC32 ajouté par défaut par les
+    // versions récentes du SDK.
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+  });
+}
 
 function getR2Config() {
   const accountId = Deno.env.get('R2_ACCOUNT_ID');
@@ -55,16 +66,7 @@ class AuthError extends Error {
 
 async function createUploadUrl(path: string, contentType: string) {
   const config = getR2Config();
-  const client = new S3Client({
-    region: 'auto',
-    endpoint: `https://${config.accountId}.r2.cloudflarestorage.com`,
-    credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey },
-    // Les versions récentes du SDK ajoutent par défaut un checksum CRC32 (x-amz-checksum-*)
-    // à la requête signée — R2 ne le supporte pas et rejette la requête d'une façon que le
-    // navigateur rapporte comme un blocage CORS. On revient au comportement précédent : pas
-    // de checksum sauf si explicitement demandé.
-    requestChecksumCalculation: 'WHEN_REQUIRED',
-  });
+  const client = r2Client(config);
   const command = new PutObjectCommand({
     Bucket: config.bucketName,
     Key: path,
@@ -73,6 +75,25 @@ async function createUploadUrl(path: string, contentType: string) {
   const uploadUrl = await getSignedUrl(client, command, { expiresIn: 300 });
   const publicUrl = `${config.publicUrlBase.replace(/\/$/, '')}/${path}`;
   return { uploadUrl, publicUrl };
+}
+
+// Supprime les objets R2 correspondant à des URLs publiques (renvoyées par createUploadUrl
+// ci-dessus, stockées telles quelles en base). Les URLs hors de ce bucket sont ignorées :
+// appelé depuis la suppression d'un set côté admin, mieux vaut ignorer une URL inattendue que
+// faire échouer toute la suppression pour un fichier qu'on ne peut de toute façon pas nettoyer ici.
+async function deleteObjectsByUrl(urls: string[]) {
+  const config = getR2Config();
+  const client = r2Client(config);
+  const base = `${config.publicUrlBase.replace(/\/$/, '')}/`;
+
+  await Promise.all(
+    urls
+      .filter((url) => url.startsWith(base))
+      .map((url) => {
+        const key = decodeURIComponent(url.slice(base.length));
+        return client.send(new DeleteObjectCommand({ Bucket: config.bucketName, Key: key }));
+      })
+  );
 }
 
 export default {
@@ -84,7 +105,15 @@ export default {
     try {
       await requireAuthenticatedUser(req);
 
-      const { path, contentType } = await req.json();
+      const body = await req.json();
+
+      if (body.action === 'delete') {
+        const urls: string[] = Array.isArray(body.urls) ? body.urls : [];
+        await deleteObjectsByUrl(urls);
+        return Response.json({ ok: true }, { headers: corsHeaders });
+      }
+
+      const { path, contentType } = body;
       if (!path) throw new Error('paramètre "path" manquant');
 
       const data = await createUploadUrl(path, contentType || 'application/octet-stream');

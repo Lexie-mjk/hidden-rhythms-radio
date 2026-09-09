@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   addTrackToPlaylist,
+  deleteFromR2,
   deletePlaylist,
   deleteSoundCloudArtist,
   deleteTrack,
@@ -170,6 +171,16 @@ function confirmDelete(label: string, onConfirm: () => void) {
   ]);
 }
 
+// Même limitation que confirmDelete ci-dessus : sans ça, toute erreur de mutation (upload,
+// insertion, suppression) échouait en silence sur web (no-op), sans aucun message visible.
+function showError(message: string) {
+  if (Platform.OS === 'web') {
+    window.alert(message);
+    return;
+  }
+  Alert.alert('Erreur', message);
+}
+
 /** Upload un fichier local vers R2 sous folder/, renvoie son URL publique et son nom d'origine. */
 async function pickAndUploadFile(
   folder: string,
@@ -210,13 +221,18 @@ function TracksAdmin() {
       setCoverFileName(null);
       setCoverUrl(null);
     },
-    onError: (e) => Alert.alert('Erreur', e instanceof Error ? e.message : String(e)),
+    onError: (e) => showError(e instanceof Error ? e.message : String(e)),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: deleteTrack,
+    mutationFn: async (track: Track) => {
+      await deleteTrack(track.id);
+      // Best-effort : la ligne est déjà supprimée, un échec de nettoyage R2 ne doit pas
+      // remonter comme un échec de la suppression aux yeux de l'admin.
+      await deleteFromR2([track.audio_url, track.cover_url]).catch(() => {});
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tracks'] }),
-    onError: (e) => Alert.alert('Erreur', e instanceof Error ? e.message : String(e)),
+    onError: (e) => showError(e instanceof Error ? e.message : String(e)),
   });
 
   async function handlePickAudio() {
@@ -228,7 +244,7 @@ function TracksAdmin() {
       setAudioUrl(result.url);
       setAudioFileName(result.name);
     } catch (e) {
-      Alert.alert('Erreur', e instanceof Error ? e.message : String(e));
+      showError(e instanceof Error ? e.message : String(e));
     } finally {
       setUploadTarget(null);
     }
@@ -243,7 +259,7 @@ function TracksAdmin() {
       setCoverUrl(result.url);
       setCoverFileName(result.name);
     } catch (e) {
-      Alert.alert('Erreur', e instanceof Error ? e.message : String(e));
+      showError(e instanceof Error ? e.message : String(e));
     } finally {
       setUploadTarget(null);
     }
@@ -289,7 +305,7 @@ function TracksAdmin() {
           <ThemedText style={styles.flex1} numberOfLines={1}>
             {track.title} — {track.artist_name}
           </ThemedText>
-          <Pressable onPress={() => confirmDelete(track.title, () => deleteMutation.mutate(track.id))}>
+          <Pressable onPress={() => confirmDelete(track.title, () => deleteMutation.mutate(track))}>
             <DeleteIcon />
           </Pressable>
         </View>
@@ -332,7 +348,7 @@ function PlaylistsList({ onSelect }: { onSelect: (id: string) => void }) {
       setCoverFileName(null);
       setCoverUrl(null);
     },
-    onError: (e) => Alert.alert('Erreur', e instanceof Error ? e.message : String(e)),
+    onError: (e) => showError(e instanceof Error ? e.message : String(e)),
   });
 
   async function handlePickCover() {
@@ -344,7 +360,7 @@ function PlaylistsList({ onSelect }: { onSelect: (id: string) => void }) {
       setCoverUrl(result.url);
       setCoverFileName(result.name);
     } catch (e) {
-      Alert.alert('Erreur', e instanceof Error ? e.message : String(e));
+      showError(e instanceof Error ? e.message : String(e));
     } finally {
       setIsUploadingCover(false);
     }
@@ -447,7 +463,7 @@ function PlaylistEditor({ playlistId, onBack }: { playlistId: string; onBack: ()
       queryClient.invalidateQueries({ queryKey: ['playlist', playlistId] });
       queryClient.invalidateQueries({ queryKey: ['playlists'] });
     },
-    onError: (e) => Alert.alert('Erreur', e instanceof Error ? e.message : String(e)),
+    onError: (e) => showError(e instanceof Error ? e.message : String(e)),
   });
 
   const deleteMutation = useMutation({
@@ -456,7 +472,7 @@ function PlaylistEditor({ playlistId, onBack }: { playlistId: string; onBack: ()
       queryClient.invalidateQueries({ queryKey: ['playlists'] });
       onBack();
     },
-    onError: (e) => Alert.alert('Erreur', e instanceof Error ? e.message : String(e)),
+    onError: (e) => showError(e instanceof Error ? e.message : String(e)),
   });
 
   async function handlePickCover() {
@@ -468,7 +484,7 @@ function PlaylistEditor({ playlistId, onBack }: { playlistId: string; onBack: ()
       setCoverUrl(result.url);
       setCoverFileName(result.name);
     } catch (e) {
-      Alert.alert('Erreur', e instanceof Error ? e.message : String(e));
+      showError(e instanceof Error ? e.message : String(e));
     } finally {
       setIsUploadingCover(false);
     }
@@ -533,7 +549,7 @@ function PlaylistTrackPicker({ playlistId, allTracks }: { playlistId: string; al
       }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['playlist-tracks', playlistId] }),
-    onError: (e) => Alert.alert('Erreur', e instanceof Error ? e.message : String(e)),
+    onError: (e) => showError(e instanceof Error ? e.message : String(e)),
   });
 
   return (
@@ -578,13 +594,13 @@ function SoundCloudArtistsAdmin() {
       setDisplayName('');
       setBio('');
     },
-    onError: (e) => Alert.alert('Erreur', e instanceof Error ? e.message : String(e)),
+    onError: (e) => showError(e instanceof Error ? e.message : String(e)),
   });
 
   const deleteMutation = useMutation({
     mutationFn: deleteSoundCloudArtist,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['soundcloud-artists'] }),
-    onError: (e) => Alert.alert('Erreur', e instanceof Error ? e.message : String(e)),
+    onError: (e) => showError(e instanceof Error ? e.message : String(e)),
   });
 
   return (

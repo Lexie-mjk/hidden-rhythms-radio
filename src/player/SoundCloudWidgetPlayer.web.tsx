@@ -76,6 +76,7 @@ export const SoundCloudWidgetPlayer = forwardRef<SoundCloudWidgetHandle, Props>(
         widget.bind(window.SC.Widget.Events.PLAY, () => onEvent({ type: 'PLAY' }));
         widget.bind(window.SC.Widget.Events.PAUSE, () => onEvent({ type: 'PAUSE' }));
         widget.bind(window.SC.Widget.Events.FINISH, () => onEvent({ type: 'FINISH' }));
+        widget.bind(window.SC.Widget.Events.ERROR, () => onEvent({ type: 'ERROR' }));
       });
       return () => {
         cancelled = true;

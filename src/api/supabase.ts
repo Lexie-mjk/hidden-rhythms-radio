@@ -255,3 +255,19 @@ export async function uploadToR2(
 
   return publicUrl;
 }
+
+/**
+ * Supprime des fichiers R2 par leur URL publique (audio_url/cover_url d'un set, par exemple).
+ * Best-effort côté appelant : la ligne en base est supprimée séparément, un échec de nettoyage
+ * ici laisse juste un fichier orphelin plutôt que de bloquer la suppression.
+ */
+export async function deleteFromR2(urls: (string | null | undefined)[]): Promise<void> {
+  const targets = urls.filter((url): url is string => !!url);
+  if (targets.length === 0) return;
+
+  const { data, error } = await supabase.functions.invoke('r2-upload-url', {
+    body: { action: 'delete', urls: targets },
+  });
+  if (error) throw new Error(`Impossible de supprimer le(s) fichier(s) R2 : ${error.message}`);
+  if (data?.error) throw new Error(data.error);
+}

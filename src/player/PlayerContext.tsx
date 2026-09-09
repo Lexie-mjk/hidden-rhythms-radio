@@ -76,7 +76,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     (event: { type: string }) => {
       if (event.type === 'PLAY') setSoundCloudPlaying(true);
       if (event.type === 'PAUSE') setSoundCloudPlaying(false);
-      if (event.type === 'FINISH') {
+      if (event.type === 'FINISH' || event.type === 'ERROR') {
+        // ERROR (morceau privé/supprimé/indisponible) traité comme FINISH : sans ça, la lecture
+        // restait bloquée en silence sur un morceau qui ne joue jamais, sans retour à l'auditeur.
         // Enchaîne sur le morceau suivant de la file (boucle en fin de file), comme la radio locale.
         setSoundCloudPlaying(false);
         setSoundCloudIndex((current) =>
@@ -170,6 +172,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   // plutôt qu'un useEffect : `didJustFinish` retombe à false dès que la source est remplacée,
   // donc cette branche ne s'exécute qu'une fois par fin de morceau.
   if (sourceType === 'local' && localStatus.didJustFinish && localQueue.length > 0) {
+    const nextIndex = (localIndex + 1) % localQueue.length;
+    setLocalIndex(nextIndex);
+    loadLocalTrack(localQueue, nextIndex);
+  }
+
+  // Fichier audio inaccessible (URL R2 cassée, etc.) : sans ça, la lecture restait bloquée en
+  // silence sur ce morceau. Même pattern que didJustFinish ci-dessus (retombe à null dès que
+  // loadLocalTrack remplace la source, donc cette branche ne s'exécute qu'une fois par erreur).
+  if (sourceType === 'local' && localStatus.error && localQueue.length > 0) {
     const nextIndex = (localIndex + 1) % localQueue.length;
     setLocalIndex(nextIndex);
     loadLocalTrack(localQueue, nextIndex);
