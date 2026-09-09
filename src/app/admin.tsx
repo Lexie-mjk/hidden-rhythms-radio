@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -155,8 +156,15 @@ function TabSwitcher({ value, onChange }: { value: AdminTab; onChange: (tab: Adm
   );
 }
 
+// react-native-web n'implémente pas Alert.alert (no-op) : les boutons et leur onPress
+// n'existent pas côté navigateur. On bascule sur window.confirm sur web.
 function confirmDelete(label: string, onConfirm: () => void) {
-  Alert.alert('Supprimer ?', `Supprimer « ${label} » ? Cette action est irréversible.`, [
+  const message = `Supprimer « ${label} » ? Cette action est irréversible.`;
+  if (Platform.OS === 'web') {
+    if (window.confirm(message)) onConfirm();
+    return;
+  }
+  Alert.alert('Supprimer ?', message, [
     { text: 'Annuler', style: 'cancel' },
     { text: 'Supprimer', style: 'destructive', onPress: onConfirm },
   ]);
